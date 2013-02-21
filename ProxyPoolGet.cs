@@ -71,6 +71,7 @@ namespace ProxyPool
             //setup
             results = new Dictionary<string, Stream>();
             resourcesDownloaded = 0;
+            webClientsInPlay = new List<WebClient>();
 
             //read each url
             foreach (string url in urlList)
@@ -106,6 +107,13 @@ namespace ProxyPool
                     }
                 }
             }
+
+            //clean up our web clients
+            foreach (WebClient client in webClientsInPlay)
+            {
+                client.Dispose();
+            }
+            webClientsInPlay = null;
 
             //we have now completed all downloads. return.
             return results;
