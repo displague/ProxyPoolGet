@@ -14,7 +14,7 @@ namespace ProxyPool
 {
     class Getter
     {
-        Dictionary<string, XmlDocument> results;
+        Dictionary<string, Stream> results;
         string[] proxies;
         int numberOfProxies;
         int resourcesDownloaded;
@@ -60,10 +60,10 @@ namespace ProxyPool
             ServicePointManager.Expect100Continue = false;
         }
 
-        public Dictionary<string, XmlDocument> GetXmlDocs(string[] urlList)
+        public Dictionary<string, Stream> GetUrls(string[] urlList)
         {
             //setup
-            results = new Dictionary<string, XmlDocument>();
+            results = new Dictionary<string, Stream>();
             resourcesDownloaded = 0;
 
             //read each url
@@ -155,20 +155,10 @@ namespace ProxyPool
                     streamToLoad = new MemoryStream(args.Result);
                 }
 
-
-                //get the xml doc ready
-                XmlDocument doc = new XmlDocument();
-
-                //load the xml from the stream
-                doc.Load(streamToLoad);
-
-                //close stream
-                streamToLoad.Close();
-
                 //add to the results!
                 lock (results)
                 {
-                    results.Add(url, doc);
+                    results.Add(url, streamToLoad);
                 }
 
                 //increment the downloads completed
