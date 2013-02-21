@@ -19,30 +19,35 @@ namespace ProxyPool
         int numberOfProxies;
         int resourcesDownloaded;
         Random randomProxySelector;
+        bool areWeRetrying = true;
 
         //default is to load proxies from a text file in the running directory
-        public Getter()
+        public Getter(bool retries = true)
         {
+            //load list file with proxies
             List<string> proxiesList = new List<string>();
 
-            //load list file with proxies
             foreach (string proxyAddress in File.ReadAllLines("proxylist.txt"))
             {
                 proxiesList.Add(proxyAddress);
             }
 
-            Setup(proxiesList);
+            Setup(proxiesList, retries);
 
         }
 
         //if we already have a list of proxies to use, use that
-        public Getter(List<string> proxiesList)
+        public Getter(List<string> proxiesList, bool retries = true)
         {
-            Setup(proxiesList);
+            Setup(proxiesList, retries);
         }
 
-        private void Setup(List<string> proxiesList)
+        //this does our setup of servicepoints and the random proxy selector etc
+        private void Setup(List<string> proxiesList, bool retries)
         {
+            //setup retrying
+            areWeRetrying = retries;
+
             //load list into the array
             proxies = proxiesList.ToArray();
 
@@ -168,9 +173,12 @@ namespace ProxyPool
             {
                 WebClient senderClient = (WebClient)sender;
                 //we had an error! retry
-                Console.WriteLine("ProxyPool request failed using proxy: " + senderClient.Proxy.GetProxy(new Uri(url)));
-                Console.WriteLine("ProxyPool Retrying: " + url);
-                ScheduleXmldocDownload(url);
+                //Console.WriteLine("ProxyPool request failed using proxy: " + senderClient.Proxy.GetProxy(new Uri(url)));
+                //Console.WriteLine("ProxyPool Retrying: " + url);
+                if (areWeRetrying)
+                {
+                    ScheduleXmldocDownload(url);
+                }
             }
         }
     }
