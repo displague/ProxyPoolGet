@@ -209,8 +209,8 @@ namespace ProxyPool
             }
             else
             {
-                WebClient senderClient = (WebClient)sender;
                 //we had an error! retry
+                //WebClient senderClient = (WebClient)sender;
                 //Console.WriteLine("ProxyPool request failed using proxy: " + senderClient.Proxy.GetProxy(new Uri(url)));
                 //Console.WriteLine("ProxyPool Retrying: " + url);
                 if (areWeRetrying)
