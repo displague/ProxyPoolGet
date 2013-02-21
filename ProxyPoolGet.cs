@@ -20,6 +20,7 @@ namespace ProxyPool
         int resourcesDownloaded;
         Random randomProxySelector;
 
+        //default is to load proxies from a text file in the running directory
         public Getter()
         {
             List<string> proxiesList = new List<string>();
@@ -30,6 +31,18 @@ namespace ProxyPool
                 proxiesList.Add(proxyAddress);
             }
 
+            Setup(proxiesList);
+
+        }
+
+        //if we already have a list of proxies to use, use that
+        public Getter(List<string> proxiesList)
+        {
+            Setup(proxiesList);
+        }
+
+        private void Setup(List<string> proxiesList)
+        {
             //load list into the array
             proxies = proxiesList.ToArray();
 
@@ -45,7 +58,6 @@ namespace ProxyPool
             //we set these up for (maybe) better performance
             ServicePointManager.UseNagleAlgorithm = false;
             ServicePointManager.Expect100Continue = false;
-
         }
 
         public Dictionary<string, XmlDocument> GetXmlDocs(string[] urlList)
