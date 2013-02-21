@@ -76,7 +76,7 @@ namespace ProxyPool
             //read each url
             foreach (string url in urlList)
             {
-                ScheduleXmldocDownload(url);
+                ScheduleDownload(url);
             }
 
             //wait for completion
@@ -119,7 +119,7 @@ namespace ProxyPool
             return results;
         }
 
-        private void ScheduleXmldocDownload(string url)
+        private void ScheduleDownload(string url)
         {
             //create webclient
             WebClient client = new WebClient();
@@ -215,7 +215,7 @@ namespace ProxyPool
                 //Console.WriteLine("ProxyPool Retrying: " + url);
                 if (areWeRetrying)
                 {
-                    ScheduleXmldocDownload(url);
+                    ScheduleDownload(url);
                 }
             }
         }
