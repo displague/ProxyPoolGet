@@ -20,6 +20,7 @@ namespace ProxyPool
         int resourcesDownloaded;
         Random randomProxySelector;
         bool areWeRetrying = true;
+        List<WebClient> webClientsInPlay;
 
         //default is to load proxies from a text file in the running directory
         public Getter(bool retries = true)
@@ -80,7 +81,30 @@ namespace ProxyPool
             //wait for completion
             while (!Interlocked.Equals(resourcesDownloaded, urlList.Length))
             {
+                //throttle ourselves to be kind
                 Thread.Sleep(100);
+
+                //if retries are off we would never finish this loop, so check to see whether all the webclients are finished
+                if (!areWeRetrying)
+                {
+                    bool clientInProgress = false;
+                    lock (webClientsInPlay)
+                    {
+                        foreach (WebClient client in webClientsInPlay)
+                        {
+                            if (client.IsBusy)
+                            {
+                                clientInProgress = true;
+                            }
+                        }
+                    }
+
+                    //no clients are still in progress, so break out of our loop
+                    if (!clientInProgress)
+                    {
+                        break;
+                    }
+                }
             }
 
             //we have now completed all downloads. return.
@@ -125,6 +149,12 @@ namespace ProxyPool
 
             //get address async
             client.DownloadDataAsync(resourceToDownload, url);
+
+            //add the webclient to our list of active clients
+            lock (webClientsInPlay)
+            {
+                webClientsInPlay.Add(client);
+            }
         }
 
         private void GotResourceStream(object sender, DownloadDataCompletedEventArgs args)
