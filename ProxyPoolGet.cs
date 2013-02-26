@@ -18,12 +18,12 @@ namespace ProxyPool
         string[] proxies;
         int numberOfProxies;
         int resourcesDownloaded;
-        Random randomProxySelector;
+        Random randomNumberGen;
         bool areWeRetrying = true;
         List<WebClient> webClientsInPlay;
 
         //setup initial throttle time in milliseconds
-        double throttleTime = 1;
+        int throttleTime = 1;
 
         //default is to load proxies from a text file in the running directory
         public Getter(bool retries = true)
@@ -59,7 +59,7 @@ namespace ProxyPool
             numberOfProxies = proxies.Length;
 
             //setup random to randomise proxy selection
-            randomProxySelector = new Random();
+            randomNumberGen = new Random();
 
             //setup servicepoint config
             //this will be the number of connections per proxy at any one time
@@ -129,9 +129,9 @@ namespace ProxyPool
 
             //randomise proxy selection
             int currentProxyIndex;
-            lock (randomProxySelector)
+            lock (randomNumberGen)
             {
-                currentProxyIndex = randomProxySelector.Next(numberOfProxies);
+                currentProxyIndex = randomNumberGen.Next(numberOfProxies);
             }
 
             //read proxy Uri from file
@@ -219,17 +219,17 @@ namespace ProxyPool
                     Console.WriteLine("Proxypool got error with URL: " + url);
                     Console.WriteLine("Error: " + args.Error.Message);
 
-                    //increase throttle time up to approx 5ms
-                    if (throttleTime < 5000)
+                    //increase throttle time up to approx 8 seconds
+                    if (throttleTime < 8000)
                     {
-                        //double throttle time
-                        throttleTime = throttleTime * 1.5;
+                        //increase our throttle time by between 110% and 210%
+                        throttleTime = (int)Math.Round(((double)throttleTime * (randomNumberGen.NextDouble() + 1.1)), 0);
 
                         Console.WriteLine("Increasing throttle time to " + throttleTime + "ms");
                     }
 
                     //throttle ourselves for throttle time
-                    Thread.Sleep((int)throttleTime);
+                    Thread.Sleep(throttleTime);
 
                     ScheduleDownload(url);
 
