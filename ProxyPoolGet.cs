@@ -22,6 +22,9 @@ namespace ProxyPool
         bool areWeRetrying = true;
         List<WebClient> webClientsInPlay;
 
+        //setup initial throttle time in milliseconds
+        double throttleTime = 1;
+
         //default is to load proxies from a text file in the running directory
         public Getter(bool retries = true)
         {
@@ -210,12 +213,32 @@ namespace ProxyPool
             else
             {
                 //we had an error! retry
-                //WebClient senderClient = (WebClient)sender;
-                //Console.WriteLine("ProxyPool request failed using proxy: " + senderClient.Proxy.GetProxy(new Uri(url)));
-                //Console.WriteLine("ProxyPool Retrying: " + url);
+
                 if (areWeRetrying)
                 {
+                    Console.WriteLine("Proxypool got error with URL: " + url);
+                    Console.WriteLine("Error: " + args.Error.Message);
+
+                    //increase throttle time up to approx 5ms
+                    if (throttleTime < 5000)
+                    {
+                        //double throttle time
+                        throttleTime = throttleTime * 1.5;
+
+                        Console.WriteLine("Increasing throttle time to " + throttleTime + "ms");
+                    }
+
+                    //throttle ourselves for throttle time
+                    Thread.Sleep((int)throttleTime);
+
                     ScheduleDownload(url);
+
+                    Console.WriteLine("Retry fired for URL: " + url);
+                }
+                else
+                {
+                    Console.WriteLine("Proxypool got error with URL: " + url);
+                    Console.WriteLine("Error: " + args.Error.Message);
                 }
             }
         }
