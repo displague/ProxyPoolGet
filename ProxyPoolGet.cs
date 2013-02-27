@@ -21,6 +21,7 @@ namespace ProxyPool
         Random randomNumberGen;
         bool areWeRetrying = true;
         List<WebClient> webClientsInPlay;
+        int softMaxThrottleTimeInMs;
 
         //setup initial throttle time in milliseconds
         int throttleTime = 1;
@@ -75,6 +76,12 @@ namespace ProxyPool
             results = new Dictionary<string, Stream>();
             resourcesDownloaded = 0;
             webClientsInPlay = new List<WebClient>();
+
+            //set max throttle time to 600 seconds (10 minutes) divided by the number of requests
+            lock (randomNumberGen)
+            {
+                softMaxThrottleTimeInMs = 600000 / urlList.Length;
+            }
 
             //read each url
             foreach (string url in urlList)
@@ -154,12 +161,12 @@ namespace ProxyPool
 
             //setup resource uri
             Uri resourceToDownload = new Uri(url);
-            
+
             //setup method to call
-            client.DownloadDataCompleted += GotResourceStream;
+            client.OpenReadCompleted += GotResourceStream;
 
             //get address async
-            client.DownloadDataAsync(resourceToDownload, url);
+            client.OpenReadAsync(resourceToDownload, url);
 
             //add the webclient to our list of active clients
             lock (webClientsInPlay)
@@ -168,7 +175,7 @@ namespace ProxyPool
             }
         }
 
-        private void GotResourceStream(object sender, DownloadDataCompletedEventArgs args)
+        private void GotResourceStream(object sender, OpenReadCompletedEventArgs args)
         {
             //get the url as it was given to us
             string url = (string)args.UserState;
@@ -176,29 +183,41 @@ namespace ProxyPool
             //check for error
             if (args.Error == null)
             {
-                //check for gzip magic number to see if we have a gzipped response
-                //get first two bytes
+                //create a memory stream for this test
+                MemoryStream freshDataStream = new MemoryStream();
+
+                //copy the network stream to our memory stream
+                args.Result.CopyTo(freshDataStream);
+
+                //close the network stream
+                args.Result.Close();
+                args.Result.Dispose();
+
+                //seek back to the start of the stream in memory
+                freshDataStream.Position = 0;
+
+                //get first two bytes to check for gzip magic number
                 byte[] firstTwoBytes = new byte[2];
-                Array.Copy(args.Result, firstTwoBytes, 2);
+                freshDataStream.Read(firstTwoBytes, 0, 2);
 
                 //check if they are gzips magic number
                 bool gziptest = (firstTwoBytes[0] == (byte)31) && (firstTwoBytes[1] == (byte)139);
+
+                //seek back to the start of the stream in memory
+                freshDataStream.Position = 0;
 
                 //this will store the stream we use to load the xml
                 Stream streamToLoad;
 
                 if (gziptest)
                 {
-                    //setup memory stream
-                    MemoryStream streamInMemory = new MemoryStream(args.Result);
-
                     //unzip the gzip
-                    streamToLoad = new GZipStream(streamInMemory, CompressionMode.Decompress);
+                    streamToLoad = new GZipStream(freshDataStream, CompressionMode.Decompress);
                 }
                 else
                 {
-                    //setup memory stream
-                    streamToLoad = new MemoryStream(args.Result);
+                    //reference the memory stream
+                    streamToLoad = freshDataStream;
                 }
 
                 //add to the results!
@@ -209,6 +228,20 @@ namespace ProxyPool
 
                 //increment the downloads completed
                 Interlocked.Increment(ref resourcesDownloaded);
+
+                if (areWeRetrying)
+                {
+                    lock (randomNumberGen)
+                    {
+                        //only decrement approx 5% of the time
+                        if (throttleTime > 0 && randomNumberGen.Next(0, 100) > 95)
+                        {
+                            //decrease our throttle time by 1ms
+                            Interlocked.Decrement(ref throttleTime);
+                        }
+                    }
+                }
+
             }
             else
             {
@@ -216,16 +249,21 @@ namespace ProxyPool
 
                 if (areWeRetrying)
                 {
-                    Console.WriteLine("Proxypool got error with URL: " + url);
-                    Console.WriteLine("Error: " + args.Error.Message);
+                    //Console.WriteLine("Proxypool got error with URL: " + url);
+                    //Console.WriteLine("Error: " + args.Error.Message);
 
-                    //increase throttle time up to approx 8 seconds
-                    if (throttleTime < 8000)
+                    //increase throttle time up to max throttle time
+                    if (throttleTime < softMaxThrottleTimeInMs)
                     {
-                        //increase our throttle time by between 110% and 210%
-                        throttleTime = (int)Math.Round(((double)throttleTime * (randomNumberGen.NextDouble() + 1.1)), 0);
+                        //lock the random number generator
+                        lock (randomNumberGen)
+                        {
+                            //increase our throttle time
+                            throttleTime = (int)Math.Round(((double)throttleTime * (randomNumberGen.NextDouble() + 2.1)), 0);
 
-                        Console.WriteLine("Increasing throttle time to " + throttleTime + "ms");
+                            Console.WriteLine("Download retrying. Increasing throttle time to " + throttleTime + "ms. Maxthrottle is " + softMaxThrottleTimeInMs + "ms");
+                        }
+
                     }
 
                     //throttle ourselves for throttle time
@@ -233,7 +271,7 @@ namespace ProxyPool
 
                     ScheduleDownload(url);
 
-                    Console.WriteLine("Retry fired for URL: " + url);
+                    //Console.WriteLine("Retry fired for URL: " + url);
                 }
                 else
                 {
