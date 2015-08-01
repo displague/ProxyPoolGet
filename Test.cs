@@ -17,6 +17,7 @@ namespace ProxyPool
             List<string> urlList = new List<string>();
 
             //currently using linode download test URLs
+            urlList.Add("http://speedtest.frankfurt.linode.com/100MB-frankfurt.bin");
             urlList.Add("http://speedtest.singapore.linode.com/100MB-singapore.bin");
             urlList.Add("http://speedtest.tokyo.linode.com/100MB-tokyo.bin");
             urlList.Add("http://speedtest.london.linode.com/100MB-london.bin");
